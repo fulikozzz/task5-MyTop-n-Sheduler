@@ -3,6 +3,7 @@
 #include "../include/core/types.h"
 #include "../include/collectors/proc_collector.h"
 #include "../include/collectors/mem_collector.h"
+#include "../include/collectors/cpu_collector.h"
 
 int main() 
 {
@@ -12,6 +13,7 @@ int main()
     for(int i = 0; i < count; i++){
         printf(" %ld", pids[i]);
     }
+    printf("\nВсего процессов: %d\n", count);
 
     if (pids == NULL || count == 0) {
         fprintf(stderr, "Не удалось собрать PID или процессов нет.\n");
@@ -36,6 +38,15 @@ int main()
     } else {
         fprintf(stderr, "Ошибка сбора метрик памяти!\n");
     }
+
+    cpu_stats_t stats2;
+    if (cpu_collect_stats(&stats2) == 0) {
+        printf("CPU:\n User: %lu\n Nice: %lu\n System: %lu\n Idle: %lu\n IOWait: %lu\n IRQ: %lu\n SoftIRQ: %lu\n CPU Count: %d\n",
+               stats2.user, stats2.nice, stats2.system, stats2.idle, 
+               stats2.iowait, stats2.irq, stats2.softirq, stats2.cpu_count);
+    } else {
+        fprintf(stderr, "Ошибка сбора метрик CPU!\n");
+    }   
 
     free(pids); 
 
