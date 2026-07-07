@@ -1,4 +1,4 @@
-#include "../../include/sheduler/sheduler.h"
+#include "../../include/scheduler/scheduler.h"
 
 #include <string.h>
  

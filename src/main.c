@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "../include/core/types.h"
 #include "../include/collectors/proc_collector.h"
@@ -8,6 +9,7 @@
 #include "../include/collectors/mem_collector.h"
 #include "../include/engine/engine.h"
 #include "../include/ui/ui.h"
+#include "../include/scheduler/scheduler.h"
 
 #define UPDATE_INTERVAL 1 // секунд между обновлениями
 
@@ -38,7 +40,7 @@ static system_snapshot_t collect(void) {
     return snap;
 }
 
-int main(void) 
+static void run_monitor(void)
 {
     engine_init();
     ui_init();
@@ -69,5 +71,38 @@ int main(void)
 
     ui_destroy();
     engine_destroy();
-    return 0;
+}
+
+static void run_sim(void) 
+{
+    sim_process_t procs[] = {
+        { .pid=1, .name="P1", .arrival=0, .burst=8,  .priority=2 },
+        { .pid=2, .name="P2", .arrival=1, .burst=4,  .priority=1 },
+        { .pid=3, .name="P3", .arrival=2, .burst=9,  .priority=3 },
+        { .pid=4, .name="P4", .arrival=3, .burst=5,  .priority=1 },
+    };
+
+    int count = 4;
+ 
+    printf("processes:\n");
+    printf("%-8s  %8s  %8s  %8s\n", "Name", "Arrival", "Burst", "Priority");
+    printf("%-8s  %8s  %8s  %8s\n", "----", "-------", "-----", "--------");
+    for (int i = 0; i < count; i++) {
+        printf("%-10s  %8d  %8d  %8d\n", procs[i].name, procs[i].arrival,
+            procs[i].burst, procs[i].priority);
+    }
+ 
+    sim_snapshot_t result;
+ 
+    sched_fifo(procs, count, &result);
+    sim_print("FIFO", procs, count, &result);
+ 
+}
+
+int main(int argc, char *argv[]) 
+{
+    if (argc > 1 && strcmp(argv[1], "--sim") == 0) 
+        run_sim();
+    else 
+        run_monitor();
 }
