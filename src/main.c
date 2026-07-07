@@ -87,6 +87,7 @@ static void run_sim(void)
     };
 
     int count = 8;
+    int quantum = 3;
  
     printf("processes:\n");
     printf("%-8s  %8s  %8s  %8s\n", "Name", "Arrival", "Burst", "Priority");
@@ -103,6 +104,9 @@ static void run_sim(void)
 
     sched_priority(procs, count, &result);
     sim_print("Priority", procs, count, &result);
+
+    sched_rr(procs, count, quantum, &result);
+    sim_print("Round Robin", procs, count, &result);
 }
 
 int main(int argc, char *argv[]) 

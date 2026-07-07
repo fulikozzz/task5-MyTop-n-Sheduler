@@ -227,3 +227,112 @@ void sched_priority(sim_process_t *procs, int count, sim_snapshot_t *out)
     out->count = count;
     calc_averages(out);
 }
+
+// Алгоритм Round Robin
+void sched_rr(sim_process_t *procs, int count, int quantum, sim_snapshot_t *out) 
+{
+    // Все процессы делаем ожидающими
+    init_snapshot(out);
+    if (count <= 0 || count > MAX_PROCESSES || quantum <= 0) return;
+ 
+    // Рабочие копии
+    int remaining[MAX_PROCESSES];
+    int arrival[MAX_PROCESSES];
+    for (int i = 0; i < count; i++) 
+    {
+        remaining[i] = procs[i].burst;
+        arrival[i]   = procs[i].arrival;
+    }
+ 
+    // Очередь готовых процессов
+    int queue[MAX_PROCESSES * GANTT_WIDTH];
+    int q_head = 0, q_tail = 0;
+    // Флаги нахождения процесса в очереди
+    int in_queue[MAX_PROCESSES];
+    memset(in_queue, 0, sizeof(in_queue));
+ 
+    int time = 0;
+    int done = 0;
+ 
+    // Добавляем процессы с arrival == 0
+    for (int i = 0; i < count; i++) 
+    {
+        if (arrival[i] == 0) 
+        {
+            queue[q_tail++] = i;
+            in_queue[i] = 1;
+        }
+    }
+ 
+    while (done < count) {
+        // обрабатываем простой
+        if (q_head == q_tail) {
+            int next_arrival = -1;
+            for (int i = 0; i < count; i++) 
+            {
+                // Находим все процессы, которые прибыли к этому новому моменту времени
+                if (remaining[i] > 0 && !in_queue[i]) 
+                {
+                    if (next_arrival < 0 || arrival[i] < next_arrival)
+                        next_arrival = arrival[i];
+                }
+            }
+            // Если нет предстоящих процессов - выходим
+            if (next_arrival < 0) break;
+            // Перематываемся на ближайший процесс
+            time = next_arrival;
+            // Заполняем очередь "проснувшимися" процессами
+            for (int i = 0; i < count; i++) 
+            {
+                if (!in_queue[i] && arrival[i] <= time && remaining[i] > 0) 
+                {
+                    queue[q_tail++] = i;
+                    in_queue[i] = 1;
+                }
+            }
+            continue;
+        }
+ 
+        int idx = queue[q_head++];
+        // Вычисляем длительность текущего шага: остаток работы процесса или полный квант времени
+        int run = (remaining[idx] < quantum) ? remaining[idx] : quantum;
+ 
+        // Заполняем диаграмму Ганта
+        for (int t = 0; t < run; t++)
+            gantt_set(out, time + t, procs[idx].pid);
+ 
+        time += run;
+        remaining[idx] -= run;
+ 
+        // Добавляем новые процессы которые пришли пока выполнялся текущий
+        for (int i = 0; i < count; i++) 
+        {
+            if (!in_queue[i] && arrival[i] <= time && remaining[i] > 0) 
+            {
+                queue[q_tail++] = i;
+                in_queue[i] = 1;
+            }
+        }
+ 
+        // Проверяем, завершил ли процесс свою работу на этом кванте
+        if (remaining[idx] > 0) 
+        {
+            // Если нет - отправляем в конец
+            queue[q_tail++] = idx;
+        } 
+        else 
+        {
+            // Завершился
+            out->results[done].pid          = procs[idx].pid;
+            strncpy(out->results[done].name, procs[idx].name, 15);
+            out->results[done].finish_time  = time;
+            out->results[done].waiting_time = time - procs[idx].arrival - procs[idx].burst;
+            out->results[done].turnaround   = time - procs[idx].arrival;
+            done++;
+        }
+    }
+ 
+    out->count = count;
+    calc_averages(out);
+}
+ 
