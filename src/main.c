@@ -4,11 +4,14 @@
 
 #include "../include/core/types.h"
 #include "../include/collectors/proc_collector.h"
-#include "../include/collectors/mem_collector.h"
 #include "../include/collectors/cpu_collector.h"
+#include "../include/collectors/mem_collector.h"
 #include "../include/engine/engine.h"
+#include "../include/ui/ui.h"
 
-static system_snapshot_t collect() {
+#define UPDATE_INTERVAL 1 // секунд между обновлениями
+
+static system_snapshot_t collect(void) {
     system_snapshot_t snap = {0};
 
     int count = 0;
@@ -16,10 +19,15 @@ static system_snapshot_t collect() {
     if (!pids) return snap;
 
     snap.processes = calloc(count, sizeof(process_t));
-    if (!snap.processes) { free(pids); return snap; }
+    if (!snap.processes) 
+    { 
+        free(pids); 
+        return snap; 
+    }
 
     snap.process_count = 0;
-    for (int i = 0; i < count; i++) {
+    for (int i = 0; i < count; i++) 
+    {
         if (proc_collect_process(pids[i], &snap.processes[snap.process_count]) == 0)
             snap.process_count++;
     }
@@ -30,46 +38,36 @@ static system_snapshot_t collect() {
     return snap;
 }
 
-int main(void) {
+int main(void) 
+{
     engine_init();
+    ui_init();
+    
+    system_snapshot_t snap = collect();
+    engine_update(&snap);
+    free(snap.processes);
 
-    while(1){
-        system_snapshot_t snap1 = collect();
-        engine_update(&snap1);
-        free(snap1.processes);
-        
-        sleep(1);
-        system("clear");
+    sleep(UPDATE_INTERVAL);
 
-        system_snapshot_t snap2 = collect();
-        engine_update(&snap2);
+    int running = 1;
+    while (running) 
+    {
+        snap = collect();
+        engine_update(&snap);
 
         const computed_snapshot_t *result = engine_get();
+        ui_render(&snap, result);
 
-        printf("\nCPU: %.1f%%", result->cpu_total_percent);
-        printf("\nMEM: %.1f%%\n", result->mem_total_percent);
-        printf("\n");
-        printf("%-6s  %-16s  %6s  %6s\n", "PID", "NAME", "CPU%", "MEM%");
+        free(snap.processes);
 
-        for (int i = 0; i < result->process_count; i++) {
-            const computed_process_t *cp = &result->processes[i];
-            if (cp->cpu_percent < 0.01 && cp->mem_percent < 0.01) continue;
-
-            // ищем имя процесса в snap2
-            const char *name = "";
-            for (int j = 0; j < snap2.process_count; j++) {
-                if (snap2.processes[j].pid == cp->pid) {
-                    name = snap2.processes[j].name;
-                    break;
-                }
-            }
-            printf("%-6d  %-16s  %6.1f  %6.1f\n",
-                cp->pid, name, cp->cpu_percent, cp->mem_percent);
+        for (int i = 0; i < UPDATE_INTERVAL * 10 && running; i++) 
+        {
+            running = ui_handle_input();
+            usleep(100000); 
         }
-        
-        free(snap2.processes);
     }
-    
+
+    ui_destroy();
     engine_destroy();
     return 0;
 }
