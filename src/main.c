@@ -77,12 +77,16 @@ static void run_sim(void)
 {
     sim_process_t procs[] = {
         { .pid=1, .name="P1", .arrival=0, .burst=8,  .priority=2 },
-        { .pid=2, .name="P2", .arrival=1, .burst=4,  .priority=1 },
-        { .pid=3, .name="P3", .arrival=2, .burst=9,  .priority=3 },
-        { .pid=4, .name="P4", .arrival=3, .burst=5,  .priority=1 },
+        { .pid=2, .name="P2", .arrival=0, .burst=4,  .priority=1 },
+        { .pid=3, .name="P3", .arrival=0, .burst=9,  .priority=3 },
+        { .pid=4, .name="P4", .arrival=0, .burst=5,  .priority=1 },
+        { .pid=5, .name="P5", .arrival=1, .burst=8,  .priority=2 },
+        { .pid=6, .name="P6", .arrival=2, .burst=4,  .priority=3 },
+        { .pid=7, .name="P7", .arrival=3, .burst=9,  .priority=3 },
+        { .pid=8, .name="P8", .arrival=3, .burst=5,  .priority=1 },
     };
 
-    int count = 4;
+    int count = 8;
  
     printf("processes:\n");
     printf("%-8s  %8s  %8s  %8s\n", "Name", "Arrival", "Burst", "Priority");
@@ -96,7 +100,9 @@ static void run_sim(void)
  
     sched_fifo(procs, count, &result);
     sim_print("FIFO", procs, count, &result);
- 
+
+    sched_priority(procs, count, &result);
+    sim_print("Priority", procs, count, &result);
 }
 
 int main(int argc, char *argv[]) 
