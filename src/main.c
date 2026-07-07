@@ -1,54 +1,75 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+
 #include "../include/core/types.h"
 #include "../include/collectors/proc_collector.h"
 #include "../include/collectors/mem_collector.h"
 #include "../include/collectors/cpu_collector.h"
+#include "../include/engine/engine.h"
 
-int main() 
-{
-    int count = 0; 
-    pid_t* pids = proc_collect_pids(&count); 
-    
-    for(int i = 0; i < count; i++){
-        printf(" %ld", pids[i]);
+static system_snapshot_t collect() {
+    system_snapshot_t snap = {0};
+
+    int count = 0;
+    pid_t *pids = proc_collect_pids(&count);
+    if (!pids) return snap;
+
+    snap.processes = calloc(count, sizeof(process_t));
+    if (!snap.processes) { free(pids); return snap; }
+
+    snap.process_count = 0;
+    for (int i = 0; i < count; i++) {
+        if (proc_collect_process(pids[i], &snap.processes[snap.process_count]) == 0)
+            snap.process_count++;
     }
-    printf("\nВсего процессов: %d\n", count);
+    free(pids);
 
-    if (pids == NULL || count == 0) {
-        fprintf(stderr, "Не удалось собрать PID или процессов нет.\n");
-        return 1;
-    }
+    cpu_collect_stats(&snap.cpu);
+    meminfo_collect_stats(&snap.mem);
+    return snap;
+}
 
-    process_t proc1;
-    for (int i = 0; i < count && i < 1000; i++) {
-        if (proc_collect_process(pids[i], &proc1) == 0) {
-            printf("Успешно распарсен процесс! PID: %d, Имя: %s, Состояние: %c\n", 
-                   proc1.pid, proc1.name, proc1.state);
-        } else {
-            fprintf(stderr, "Ошибка парсинга для PID %d\n", pids[i]);
+int main(void) {
+    engine_init();
+
+    while(1){
+        system_snapshot_t snap1 = collect();
+        engine_update(&snap1);
+        free(snap1.processes);
+        
+        sleep(1);
+        system("clear");
+
+        system_snapshot_t snap2 = collect();
+        engine_update(&snap2);
+
+        const computed_snapshot_t *result = engine_get();
+
+        printf("\nCPU: %.1f%%", result->cpu_total_percent);
+        printf("\nMEM: %.1f%%\n", result->mem_total_percent);
+        printf("\n");
+        printf("%-6s  %-16s  %6s  %6s\n", "PID", "NAME", "CPU%", "MEM%");
+
+        for (int i = 0; i < result->process_count; i++) {
+            const computed_process_t *cp = &result->processes[i];
+            if (cp->cpu_percent < 0.01 && cp->mem_percent < 0.01) continue;
+
+            // ищем имя процесса в snap2
+            const char *name = "";
+            for (int j = 0; j < snap2.process_count; j++) {
+                if (snap2.processes[j].pid == cp->pid) {
+                    name = snap2.processes[j].name;
+                    break;
+                }
+            }
+            printf("%-6d  %-16s  %6.1f  %6.1f\n",
+                cp->pid, name, cp->cpu_percent, cp->mem_percent);
         }
+        
+        free(snap2.processes);
     }
     
-    mem_stats_t stats1;
-    if (meminfo_collect_stats(&stats1) == 0) {
-        printf("Память:\n Free: %llu\n Available: %llu\n Total: %llu\n Cached/Buffer: %llu\n",
-               stats1.free, stats1.available, 
-               stats1.total, stats1.buffers + stats1.cached);
-    } else {
-        fprintf(stderr, "Ошибка сбора метрик памяти!\n");
-    }
-
-    cpu_stats_t stats2;
-    if (cpu_collect_stats(&stats2) == 0) {
-        printf("CPU:\n User: %lu\n Nice: %lu\n System: %lu\n Idle: %lu\n IOWait: %lu\n IRQ: %lu\n SoftIRQ: %lu\n CPU Count: %d\n",
-               stats2.user, stats2.nice, stats2.system, stats2.idle, 
-               stats2.iowait, stats2.irq, stats2.softirq, stats2.cpu_count);
-    } else {
-        fprintf(stderr, "Ошибка сбора метрик CPU!\n");
-    }   
-
-    free(pids); 
-
+    engine_destroy();
     return 0;
 }
