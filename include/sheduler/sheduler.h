@@ -3,12 +3,13 @@
 
 #define MAX_PROCESSES 16
 #define GANTT_WIDTH 60
+#define MAX_NAME_LENGHT 16
 
 // входные данные процесса 
 typedef struct 
 {
     int pid;
-    char name[16];
+    char name[MAX_NAME_LENGHT];
     int arrival;   // тик появления в очереди
     int burst;     // требуемое время процессора в тиках
     int priority;  // приоритет процесса
@@ -18,7 +19,7 @@ typedef struct
 typedef struct 
 {
     int pid;
-    char name[16];
+    char name[MAX_NAME_LENGHT];
     int finish_time;  // момент завершения
     int waiting_time; // время ожидания в очереди
     int turnaround;   // finish_time - arrival (полное время от прихода до конца)
