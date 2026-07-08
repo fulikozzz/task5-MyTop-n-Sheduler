@@ -178,3 +178,4 @@ P4         |   ..................#####|
 - [NCURSES Programming HOWTO](https://tldp.org/HOWTO/NCURSES-Programming-HOWTO/) - основы работы с библиотекой
 - [htop source](https://github.com/htop-dev/htop) - как устроен парсинг `/proc` в production-утилите
 - [procps (top)](https://gitlab.com/procps-ng/procps) - исходники стандартного `top`
+- [different process's %cpu output via to](https://gitlab.com/procps-ng/procps/-/work_items/48) - обсуждение формул
