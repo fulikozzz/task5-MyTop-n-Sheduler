@@ -195,6 +195,70 @@ void parallel_merge_sort_basic()
     CHECK(cmp_arr_ref(original5, arr5, 4) == true, "массив из одинаковых элементов прошел");
 }
 
+void parallel_merge_sort_mt_basic()
+{
+    TEST("Многопоточная сортировка с многопоточным слиянием");
+    int arr1[] = {5, 3, 8, 1, 9, 2, 7, 4, 6};
+    printf("Исходный массив: ");    
+    for (int i = 0; i < 9; i++) printf("%d ", arr1[i]);
+    printf("\n");
+    int original1[9];
+    cp_arr(arr1, original1, 9);
+    parallel_merge_sort_mt(arr1, 0, 8);
+    printf("Отсортированный массив: ");        
+    for (int i = 0; i < 9; i++) printf("%d ", arr1[i]);
+    printf("\n");
+    CHECK(cmp_arr_ref(original1, arr1, 9) == true, "случайный массив прошел");
+
+    int arr2[] = {1, 2, 3, 4, 5};
+    printf("Исходный массив: ");    
+    for (int i = 0; i < 5; i++) printf("%d ", arr2[i]);
+    printf("\n");
+    int original2[5];
+    cp_arr(arr2, original2, 5);
+    parallel_merge_sort_mt(arr2, 0, 4);
+    printf("Отсортированный массив: ");        
+    for (int i = 0; i < 5; i++) printf("%d ", arr2[i]);
+    printf("\n");
+    CHECK(cmp_arr_ref(original2, arr2, 5) == true, "уже отсортированный массив прошел");
+    
+    int arr3[] = {5, 4, 3, 2, 1};
+    printf("Исходный массив: ");    
+    for (int i = 0; i < 5; i++) printf("%d ", arr3[i]);
+    printf("\n");
+    int original3[5];
+    cp_arr(arr3, original3, 5);
+    parallel_merge_sort_mt(arr3, 0, 4);
+    printf("Отсортированный массив: ");        
+    for (int i = 0; i < 5; i++) printf("%d ", arr3[i]);
+    printf("\n");
+    CHECK(cmp_arr_ref(original3, arr3, 5) == true, "массив в обратном порядке прошел");
+    
+    int arr4[] = {42};
+    printf("Исходный массив: ");    
+    for (int i = 0; i < 1; i++) printf("%d ", arr4[i]);
+    printf("\n");
+    int original4[1];
+    cp_arr(arr4, original4, 1);
+    parallel_merge_sort_mt(arr4, 0, 0);
+    printf("Отсортированный массив: ");        
+    for (int i = 0; i < 1; i++) printf("%d ", arr4[i]);
+    printf("\n");
+    CHECK(cmp_arr_ref(original4, arr4, 1) == true, "массив из одного элемента прошел");
+ 
+    int arr5[] = {2, 2, 2, 2};
+    printf("Исходный массив: ");    
+    for (int i = 0; i < 4; i++) printf("%d ", arr5[i]);
+    printf("\n");
+    int original5[4];
+    cp_arr(arr5, original5, 4);
+    parallel_merge_sort_mt(arr5, 0, 3);
+    printf("Отсортированный массив: ");        
+    for (int i = 0; i < 4; i++) printf("%d ", arr5[i]);
+    printf("\n");
+    CHECK(cmp_arr_ref(original5, arr5, 4) == true, "массив из одинаковых элементов прошел");
+}
+
 // функция генерации массива
 static int* get_rand_arr(int size) 
 {
@@ -217,12 +281,15 @@ void cmp_alghorithms(int size)
 
     int* arr1 = get_rand_arr(size);
     int* arr2 = get_rand_arr(size);
-    if (!arr1 || !arr2) {
+    int* arr3 = get_rand_arr(size);
+    if (!arr1 || !arr2 || !arr3) {
         free(arr1);
         free(arr2);
+        free(arr3);
         return;
     }
     cp_arr(arr1, arr2, size);
+    cp_arr(arr1, arr3, size);
 
     struct timespec start, end;
     double time_seq, time_par;
@@ -237,15 +304,26 @@ void cmp_alghorithms(int size)
     clock_gettime(CLOCK_MONOTONIC, &end);
     printf("Многопоточная сортировка с однопоточным слиянием заняла %.2f мс\n", cmp_time(start, end));
 
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    parallel_merge_sort_mt(arr3, 0, size - 1);
+    clock_gettime(CLOCK_MONOTONIC, &end);
+    printf("Многопоточная сортировка с многопоточным слиянием заняла %.2f мс\n", cmp_time(start, end));
+
     free(arr1);
     free(arr2);
+    free(arr3);
 }
 
 int main()
 {
     merge_sort_basic();
     parallel_merge_sort_basic();
-    cmp_alghorithms(25000);
+    parallel_merge_sort_mt_basic();
+    cmp_alghorithms(10000);    
+    cmp_alghorithms(25000);    
+    cmp_alghorithms(50000);
+    cmp_alghorithms(100000);
+    cmp_alghorithms(500000);        
     TOTAL();
     return 0;
 }
