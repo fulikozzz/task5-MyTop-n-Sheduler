@@ -245,7 +245,7 @@ int main()
 {
     merge_sort_basic();
     parallel_merge_sort_basic();
-    cmp_alghorithms(10000);
+    cmp_alghorithms(25000);
     TOTAL();
     return 0;
 }
