@@ -48,7 +48,7 @@ typedef struct {
 void sched_mt_init(scheduler_mt_t *s, sched_type_t type, int quantum_ms);
 void sched_mt_destroy(scheduler_mt_t *s);
 
-void sched_mt__add_proc(scheduler_mt_t *s, int id, int priority, int burst_ms, int arrival_ms);
+void sched_mt_add_proc(scheduler_mt_t *s, int id, int priority, int burst_ms, int arrival_ms);
 
 void sched_mt_run(scheduler_mt_t *s);
 

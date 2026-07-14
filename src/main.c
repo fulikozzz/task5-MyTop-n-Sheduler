@@ -1,118 +1,74 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
-#include <string.h>
+#include <time.h>
 
-#include "../include/core/types.h"
-#include "../include/collectors/proc_collector.h"
-#include "../include/collectors/cpu_collector.h"
-#include "../include/collectors/mem_collector.h"
-#include "../include/engine/engine.h"
-#include "../include/ui/ui.h"
-#include "../include/scheduler/scheduler.h"
+#include "../include/sched_mt/sched_mt.h"
 
-#define UPDATE_INTERVAL 1 // секунд между обновлениями
+static int passed = 0;
+static int total  = 0;
 
-static system_snapshot_t collect(void) {
-    system_snapshot_t snap = {0};
+#define TEST(name) printf("\n=== %s ===\n", name)
 
-    int count = 0;
-    pid_t *pids = proc_collect_pids(&count);
-    if (!pids) return snap;
+#define CHECK(cond, msg) do {               \
+    total++;                                \
+    if (cond) {                             \
+        passed++;                           \
+        printf("  [OK] %s\n", msg);        \
+    } else {                                \
+        printf("  [!!] ПРОВАЛ: %s\n", msg);\
+    }                                       \
+} while(0)
 
-    snap.processes = calloc(count, sizeof(process_t));
-    if (!snap.processes) 
-    { 
-        free(pids); 
-        return snap; 
-    }
+#define TOTAL() printf("\nИтог: %d/%d тестов пройдено\n", passed, total)
 
-    snap.process_count = 0;
-    for (int i = 0; i < count; i++) 
-    {
-        if (proc_collect_process(pids[i], &snap.processes[snap.process_count]) == 0)
-            snap.process_count++;
-    }
-    free(pids);
-
-    cpu_collect_stats(&snap.cpu);
-    meminfo_collect_stats(&snap.mem);
-    return snap;
+static long now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 }
 
-static void run_monitor(void)
-{
-    engine_init();
-    ui_init();
+void test_fifo(void) {
+    TEST("Проверка FIFO планировщика");
+    scheduler_mt_t s;
+    sched_mt_init(&s, FIFO, 0);
+    sched_mt_add_proc(&s, 1, 1, 20, 0);
+    sched_mt_add_proc(&s, 2, 1, 35, 0);
+    sched_mt_add_proc(&s, 3, 1, 10, 0);
+    sched_mt_run(&s);
+    sched_mt_destroy(&s);
+}
+
+void test_priority(void) {
+    TEST("Проверка PRIORITY планировщика");
+    scheduler_mt_t s;
+    sched_mt_init(&s, PRIORITY, 0); 
+    sched_mt_add_proc(&s, 1, 3, 20, 0);
+    sched_mt_add_proc(&s, 2, 1, 35, 0);
+    sched_mt_add_proc(&s, 3, 2, 10, 0);
+    sched_mt_run(&s);
+    sched_mt_destroy(&s);
+}
+
+void test_rr(void) {
+    TEST("Проверка RR планировщика");
+    scheduler_mt_t s;
+    sched_mt_init(&s, RR, 5);
+    sched_mt_add_proc(&s, 1, 1, 20, 0);
+    sched_mt_add_proc(&s, 2, 1, 35, 0);
+    sched_mt_add_proc(&s, 3, 1, 10, 0);
+    sched_mt_run(&s);
+    sched_mt_destroy(&s);
+}
+
+int main(void) {
     
-    system_snapshot_t snap = collect();
-    engine_update(&snap);
-    free(snap.processes);
+    test_fifo();
+    test_priority();
+    test_rr();
 
-    sleep(UPDATE_INTERVAL);
-
-    int running = 1;
-    while (running) 
-    {
-        snap = collect();
-        engine_update(&snap);
-
-        const computed_snapshot_t *result = engine_get();
-        ui_render(&snap, result);
-
-        free(snap.processes);
-
-        for (int i = 0; i < UPDATE_INTERVAL * 10 && running; i++) 
-        {
-            running = ui_handle_input();
-            usleep(100000); 
-        }
-    }
-
-    ui_destroy();
-    engine_destroy();
-}
-
-static void run_sim(void) 
-{
-    sim_process_t procs[] = {
-        { .pid=1, .name="P1", .arrival=0, .burst=8,  .priority=2 },
-        { .pid=2, .name="P2", .arrival=0, .burst=4,  .priority=1 },
-        { .pid=3, .name="P3", .arrival=0, .burst=9,  .priority=3 },
-        { .pid=4, .name="P4", .arrival=0, .burst=5,  .priority=1 },
-        { .pid=5, .name="P5", .arrival=1, .burst=8,  .priority=2 },
-        { .pid=6, .name="P6", .arrival=2, .burst=4,  .priority=3 },
-        { .pid=7, .name="P7", .arrival=3, .burst=9,  .priority=3 },
-        { .pid=8, .name="P8", .arrival=3, .burst=5,  .priority=1 },
-    };
-
-    int count = 8;
-    int quantum = 3;
- 
-    printf("processes:\n");
-    printf("%-8s  %8s  %8s  %8s\n", "Name", "Arrival", "Burst", "Priority");
-    printf("%-8s  %8s  %8s  %8s\n", "----", "-------", "-----", "--------");
-    for (int i = 0; i < count; i++) {
-        printf("%-10s  %8d  %8d  %8d\n", procs[i].name, procs[i].arrival,
-            procs[i].burst, procs[i].priority);
-    }
- 
-    sim_snapshot_t result;
- 
-    sched_fifo(procs, count, &result);
-    sim_print("FIFO", procs, count, &result);
-
-    sched_priority(procs, count, &result);
-    sim_print("Priority", procs, count, &result);
-
-    sched_rr(procs, count, quantum, &result);
-    sim_print("Round Robin", procs, count, &result);
-}
-
-int main(int argc, char *argv[]) 
-{
-    if (argc > 1 && strcmp(argv[1], "--sim") == 0) 
-        run_sim();
-    else 
-        run_monitor();
+    return 0;
 }
