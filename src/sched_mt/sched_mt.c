@@ -57,7 +57,7 @@ static void *proc_thread(void *arg)
 
     // Имитируем задержку появления процесса
     if (p->arrival > 0)
-        usleep(p->arrival * 5000);
+        usleep(p->arrival * 1000);
 
     printf("[proc %2d] появился в очереди (burst=%d мс, priority=%d)\n", p->id, p->burst, p->priority);
 
@@ -92,11 +92,11 @@ static void *proc_thread(void *arg)
 
         printf("[proc %2d] работает %d мс (осталось %d мс)\n", p->id, run_time, p->remaining - run_time);
 
-        usleep(run_time * 5000); // Симулируем работу
+        usleep(run_time * 1000); // Симулируем работу
         p->remaining -= run_time;
 
         pthread_mutex_lock(&s->queue_mutex);
-        pthread_cond_signal(&s->queue_cond);
+        pthread_cond_signal(&s->cpu_cond);
         pthread_mutex_unlock(&s->queue_mutex);
         
 }
@@ -106,7 +106,8 @@ static void *proc_thread(void *arg)
     p->state = 'Z';
     s->active_count--;
     printf("[proc %2d] завершён (ждал %d мс)\n", p->id, p->waited);
-    pthread_cond_signal(&s->queue_cond); // Будим планировщик, чтобы обновить счетчик активных
+    pthread_cond_signal(&s->cpu_cond);
+//    pthread_cond_signal(&s->queue_cond); // Будим планировщик, чтобы обновить счетчик активных
     pthread_mutex_unlock(&s->queue_mutex);
 
     return NULL;
@@ -142,7 +143,7 @@ static void *scheduler_thread(void *arg) {
 
         // Ждем пока процесс отработает квант
         pthread_mutex_lock(&s->queue_mutex);
-        pthread_cond_wait(&s->queue_cond, &s->queue_mutex);
+        pthread_cond_wait(&s->cpu_cond, &s->queue_mutex);
         pthread_mutex_unlock(&s->queue_mutex);
     }
 
@@ -158,12 +159,14 @@ void sched_mt_init(scheduler_mt_t *s, sched_type_t type, int quantum_ms)
     // Инициализируем глобальные мьютекс и конд для защиты очереди
     pthread_mutex_init(&s->queue_mutex, NULL);
     pthread_cond_init(&s->queue_cond, NULL);
+    pthread_cond_init(&s->cpu_cond, NULL);
 }
 
 void sched_mt_destroy(scheduler_mt_t *s) 
 {
     pthread_mutex_destroy(&s->queue_mutex);
     pthread_cond_destroy(&s->queue_cond);
+    pthread_cond_destroy(&s->cpu_cond);
     for (int i = 0; i < s->proc_count; i++) 
     {
         pthread_mutex_destroy(&s->procs[i].mutex);

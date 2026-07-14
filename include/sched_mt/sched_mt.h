@@ -41,6 +41,7 @@ typedef struct {
 
     pthread_mutex_t queue_mutex;
     pthread_cond_t  queue_cond;
+    pthread_cond_t  cpu_cond;
 
     int active_count; 
 } scheduler_mt_t;
